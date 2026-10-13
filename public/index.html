@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#091211">
+    <meta name="description" content="Turn your phone into a motion controller and race together in your browser.">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+    <title>Tilt Racer — pocket pilot</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Tilt Racer home">
+          <span class="brand-mark" aria-hidden="true">T</span>
+          <span>tilt<span class="brand-light">racer</span></span>
+        </a>
+        <div class="connection" id="connection" role="status" aria-live="polite">
+          <span class="connection-dot"></span>
+          <span id="connection-label">Starting your race…</span>
+        </div>
+      </header>
+
+      <main id="game-view">
+        <section class="intro">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> MULTIPLAYER · MOTION CONTROLLED</div>
+          <h1>Race with<br><span>your whole body.</span></h1>
+          <p class="intro-copy">Your phone is the wheel. Your laptop is the track.<br>Find a comfy grip and take the lead.</p>
+        </section>
+
+        <section class="race-layout" aria-label="Racing game and controls">
+          <div class="game-panel">
+            <div class="track-frame">
+              <canvas id="game-canvas" aria-label="Live racing game"></canvas>
+              <div class="race-overlay" id="race-overlay">
+                <span class="overlay-icon" aria-hidden="true">↗</span>
+                <span>Make space on the track…</span>
+              </div>
+              <div class="race-topline">
+                <span class="live-tag"><span></span> LIVE RACE</span>
+                <span class="player-count" id="player-count">0 pilots</span>
+              </div>
+              <div class="race-hud">
+                <div><span class="hud-label">DISTANCE</span><strong id="distance">0000<span> m</span></strong></div>
+                <div class="hud-right"><span class="hud-label">BEST LAP</span><strong id="best-time">—</strong></div>
+              </div>
+            </div>
+            <div class="track-footer">
+              <span><span class="track-key">↔</span> Tilt to steer</span>
+              <span><span class="track-key">↟</span> Shake to jump</span>
+              <span><span class="track-key">A</span> Accelerate</span>
+            </div>
+          </div>
+
+          <aside class="pair-card">
+            <div class="pair-heading">
+              <div><span class="card-kicker">JOIN THE RACE</span><h2>Pair your phone</h2></div>
+              <span class="phone-glyph" aria-hidden="true">▯</span>
+            </div>
+            <p class="pair-copy">Scan the code, or open the controller page on the same Wi-Fi and enter this room code.</p>
+            <div class="qr-wrap"><img id="qr-code" alt="QR code to pair a phone" hidden><div class="qr-loading" id="qr-loading"><span class="loader"></span><span>Making your room…</span></div></div>
+            <div class="room-row">
+              <span class="room-caption">YOUR ROOM CODE</span>
+              <span class="room-code" id="room-code">······</span>
+              <button class="icon-button" id="copy-code" type="button" aria-label="Copy room code" title="Copy room code">▢</button>
+            </div>
+            <div class="pair-url" id="pair-url">Waiting for a room…</div>
+            <div class="players-section">
+              <div class="section-label">ON THE GRID <span id="grid-count">0</span></div>
+              <ul id="player-list" class="player-list"><li class="empty-player">The starting line is yours.</li></ul>
+            </div>
+            <div class="latency-line"><span class="latency-indicator"></span> <span>Live link</span><strong id="game-latency">—</strong></div>
+          </aside>
+        </section>
+        <footer class="page-foot"><span>NO DOWNLOAD NEEDED</span><span>Up to 8 phones · One room · All racers welcome</span></footer>
+      </main>
+
+      <main id="controller-view" hidden>
+        <section class="controller-shell">
+          <div class="controller-header">
+            <a class="brand" href="/" aria-label="Tilt Racer home"><span class="brand-mark">T</span><span>tilt<span class="brand-light">racer</span></span></a>
+            <div class="controller-room"><span class="eyebrow-dot"></span><span>ROOM</span><strong id="controller-room-code">······</strong></div>
+          </div>
+          <section class="room-entry" id="room-entry" hidden>
+            <span class="card-kicker">JOIN A ROOM</span>
+            <form id="room-entry-form">
+              <label for="room-entry-code">ROOM CODE</label>
+              <div class="room-entry-row">
+                <input id="room-entry-code" name="room" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="6" minlength="6" pattern="[A-HJ-NP-Z2-9]{6}" placeholder="ABC123" aria-describedby="room-entry-message" required>
+                <button class="primary-button" type="submit">Join <span>↗</span></button>
+              </div>
+              <p id="room-entry-message" aria-live="polite">Enter the six-character code shown on the game screen.</p>
+            </form>
+          </section>
+          <section class="controller-welcome">
+            <span class="card-kicker">YOUR POCKET IS THE COCKPIT</span>
+            <h1>Ready to<br><span>take the wheel?</span></h1>
+            <p>Hold your phone upright in portrait. Tilt left and right to steer. Shake to jump over traffic.</p>
+          </section>
+          <section class="sensor-card" id="sensor-card">
+            <div class="sensor-status-row"><span class="sensor-icon">⌁</span><div><strong id="sensor-title">Wake up your sensors</strong><span id="sensor-description">Allow motion access to use your phone as a wheel.</span></div></div>
+            <div class="sensor-actions"><button class="primary-button" id="enable-sensors" type="button">Enable motion controls <span>↗</span></button><button class="text-button" id="calibrate" type="button" disabled>Set neutral position</button></div>
+            <p class="sensor-message" id="sensor-message" aria-live="polite"></p>
+          </section>
+          <section class="steering-card" id="steering-card">
+            <div class="steering-heading"><span class="card-kicker">STEERING WHEEL</span><span class="neutral-label" id="neutral-label">NOT CALIBRATED</span></div>
+            <div class="steering-meter" aria-label="Steering position"><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-center"></span><span class="steering-dot" id="steering-dot"></span></div>
+            <div class="meter-labels"><span>LEFT</span><span>NEUTRAL</span><span>RIGHT</span></div>
+          </section>
+          <div class="phone-actions" id="phone-actions">
+            <button class="action-button jump-button" id="jump-button" type="button" disabled><span class="action-icon">↟</span><span>JUMP</span><small>shake or tap</small></button>
+            <button class="action-button boost-button" id="boost-button" type="button" disabled><span class="action-icon">⚡</span><span>BOOST</span><small>hold to accelerate</small></button>
+            <button class="action-button brake-button" id="brake-button" type="button" disabled><span class="action-icon">↓</span><span>BRAKE</span><small>hold to slow down</small></button>
+          </div>
+          <div class="controller-footer" id="controller-footer"><span class="connection" id="controller-connection"><span class="connection-dot"></span><span id="controller-connection-label">Joining the grid…</span></span><span class="latency-chip" id="controller-latency">— ms</span></div>
+          <p class="fine-print">Keep this screen open while you race. Your tilt stays on your phone.</p>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
