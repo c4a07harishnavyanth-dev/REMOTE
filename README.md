@@ -22,6 +22,15 @@ npm start
 
 Alternatively set `LAN_HOST` to the laptop's LAN IP if automatic address detection selects the wrong network interface. A plain `http://localhost` page can be used to inspect the game on the laptop, but phone motion access is not guaranteed over an insecure HTTP connection.
 
+For phone testing without configuring a domain or reverse proxy, install Cloudflare Tunnel and run the optional HTTPS mode:
+
+```powershell
+winget install --id Cloudflare.cloudflared
+npm run start:phone
+```
+
+Wait for the `Phone HTTPS URL` in the terminal, then open `http://localhost:3000` on the laptop and scan its QR code. Keep the server running while playing. The temporary HTTPS tunnel makes the game reachable from the public internet for its duration.
+
 ## Pair and play
 
 1. Open the game page on the laptop. It creates a six-character room and displays a QR code.

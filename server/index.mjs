@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { spawn } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,9 +11,12 @@ import { broadcastRoster, createRoom, getOrCreateRoom } from "./rooms.mjs";
 const ROOT = resolve(fileURLToPath(new URL("../public", import.meta.url)));
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
-const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/+$/, "");
+const PHONE_MODE = process.argv.includes("--phone");
+let PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/+$/, "");
 const LAN_HOST = process.env.LAN_HOST;
 const rooms = new Map();
+let phoneTunnel;
+let shuttingDown = false;
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -135,6 +139,55 @@ const server = createServer(async (request, response) => {
     }
   }
 });
+
+function openPhoneTunnel() {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let output = "";
+    const timeout = setTimeout(() => finish(new Error("Timed out waiting for the HTTPS tunnel.")), 60_000);
+    const finish = (error, url) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      if (error) {
+        reject(error);
+      } else {
+        resolve(url);
+      }
+    };
+    const handleOutput = (chunk) => {
+      const text = chunk.toString();
+      process.stdout.write(text);
+      output = `${output}${text}`.slice(-8192);
+      const match = output.match(/https:\/\/[a-z\d-]+\.trycloudflare\.com/i);
+      if (match) {
+        finish(null, match[0]);
+      }
+    };
+
+    phoneTunnel = spawn("cloudflared", ["tunnel", "--url", `http://127.0.0.1:${PORT}`, "--no-autoupdate"], {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    phoneTunnel.stdout.on("data", handleOutput);
+    phoneTunnel.stderr.on("data", handleOutput);
+    phoneTunnel.once("error", (error) => {
+      const installHint = process.platform === "win32"
+        ? " Install it with: winget install --id Cloudflare.cloudflared"
+        : " Install cloudflared and make sure it is on PATH.";
+      finish(new Error(`${error.message}.${installHint}`));
+    });
+    phoneTunnel.once("exit", (code) => {
+      if (PUBLIC_URL) {
+        console.error(`The phone HTTPS tunnel stopped (code ${code}).`);
+        shutdown();
+        return;
+      }
+      finish(new Error(`cloudflared exited before the HTTPS tunnel was ready (code ${code}).`));
+    });
+  });
+}
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
@@ -260,14 +313,42 @@ wss.on("connection", (webSocket) => {
   webSocket.on("pong", () => { webSocket.isAlive = true; });
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Tilt Racer listening on http://${HOST}:${PORT}`);
-});
+async function startServer() {
+  if (PHONE_MODE) {
+    try {
+      PUBLIC_URL = await openPhoneTunnel();
+    } catch (error) {
+      console.error("Could not start the phone HTTPS tunnel:", error.message);
+      phoneTunnel?.kill();
+      clearInterval(heartbeat);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  server.listen(PORT, HOST, () => {
+    console.log(`Tilt Racer listening on http://${HOST}:${PORT}`);
+    if (PHONE_MODE) {
+      console.log(`Phone HTTPS URL: ${PUBLIC_URL}`);
+    }
+  });
+}
+
+void startServer();
 
 function shutdown() {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
   clearInterval(heartbeat);
+  phoneTunnel?.kill();
   for (const webSocket of wss.clients) {
     webSocket.close(1001, "Server shutting down");
+  }
+  if (!server.listening) {
+    process.exit(0);
+    return;
   }
   server.close(() => process.exit(0));
 }

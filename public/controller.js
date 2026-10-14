@@ -2,6 +2,13 @@ import { connectRoom } from "./app.js";
 
 const roomPattern = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const createPlayerId = () => {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 export function startController(inputRoom) {
   const room = typeof inputRoom === "string" ? inputRoom.toUpperCase() : "";
@@ -32,7 +39,7 @@ export function startController(inputRoom) {
     document.querySelector(".fine-print")
   ];
   const buttons = [jumpButton, boostButton, brakeButton];
-  const playerId = sessionStorage.getItem("tilt-racer-player-id") || crypto.randomUUID();
+  const playerId = sessionStorage.getItem("tilt-racer-player-id") || createPlayerId();
   sessionStorage.setItem("tilt-racer-player-id", playerId);
   const name = { id: playerId, display: `Driver ${playerId.slice(0, 2).toUpperCase()}` };
 

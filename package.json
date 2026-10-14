@@ -6,6 +6,7 @@
   "description": "A phone-motion controller for a browser racing game.",
   "scripts": {
     "start": "node server/index.mjs",
+    "start:phone": "node server/index.mjs --phone",
     "test": "node --test"
   },
   "dependencies": {
