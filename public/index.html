@@ -38,6 +38,13 @@
                 <span class="overlay-icon" aria-hidden="true">↗</span>
                 <span>Make space on the track…</span>
               </div>
+              <div class="game-over-overlay" id="game-over-overlay" aria-live="assertive" hidden>
+                <span class="game-over-mark" aria-hidden="true">!</span>
+                <span class="game-over-kicker">IMPACT</span>
+                <h2>Race over</h2>
+                <p>Distance <strong id="game-over-distance">0 m</strong></p>
+                <button class="restart-button" id="restart-race" type="button">Race again</button>
+              </div>
               <div class="race-topline">
                 <span class="live-tag"><span></span> LIVE RACE</span>
                 <span class="player-count" id="player-count">0 pilots</span>

@@ -52,6 +52,18 @@ h1 > span { color: var(--lime); }
 .player-count { color: #bdcabc; }
 .race-overlay { position: absolute; z-index: 1; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #b2c1b2; background: #0b15118e; font-size: 13px; backdrop-filter: blur(2px); pointer-events: none; }
 .overlay-icon { color: var(--lime); font-size: 36px; }
+.game-over-overlay { position: absolute; z-index: 3; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: #f5e9df; background: radial-gradient(ellipse at center, #401f26e8, #09100eea 72%); text-align: center; }
+.game-over-overlay[hidden] { display: none; }
+.game-over-overlay:not([hidden]) { animation: game-over-reveal .48s cubic-bezier(.2,.8,.2,1) both; }
+.game-over-mark { display: grid; place-items: center; width: 38px; aspect-ratio: 1; border: 1px solid #ff967e; border-radius: 50%; color: #ff967e; font: 600 24px var(--mono); animation: crash-mark .4s cubic-bezier(.16,1.4,.4,1) both; }
+.game-over-kicker { color: #ff967e; font: 10px var(--mono); letter-spacing: .16em; }
+.game-over-overlay h2 { margin: 0; color: #fff5eb; font-size: 32px; line-height: 1; }
+.game-over-overlay p { margin: 2px 0 6px; color: #c2b6ad; font: 11px var(--mono); }
+.game-over-overlay p strong { color: #fff5eb; }
+.restart-button { padding: 10px 19px; border: 1px solid #ff967e; border-radius: 5px; background: #e46e5e; color: #fff8f1; font: 600 12px var(--mono); cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.restart-button:hover { transform: translateY(-2px); background: #f0806e; }
+@keyframes game-over-reveal { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(3px); } }
+@keyframes crash-mark { from { opacity: 0; transform: scale(.35) rotate(-25deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 .race-hud { position: absolute; inset: auto 18px 17px; display: flex; justify-content: space-between; align-items: end; pointer-events: none; text-shadow: 0 1px 8px #000; }
 .hud-label { display: block; margin-bottom: 3px; color: #a8b7a5; font: 9px var(--mono); letter-spacing: .1em; }
 .race-hud strong { font: 20px var(--mono); letter-spacing: -.04em; }

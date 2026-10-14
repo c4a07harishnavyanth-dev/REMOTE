@@ -2,6 +2,8 @@ import { connectRoom } from "./app.js";
 
 const COLORS = ["#c1f17a", "#5ee1bc", "#ffbd72", "#d39bf7", "#f47f83", "#80a9ff", "#f4e577", "#ff91cb"];
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const BASE_SPEED = 255;
+const CRASH_ANIMATION_MS = 1050;
 
 export async function startGame() {
   const canvas = document.querySelector("#game-canvas");
@@ -11,6 +13,9 @@ export async function startGame() {
     return;
   }
   const overlay = document.querySelector("#race-overlay");
+  const gameOverOverlay = document.querySelector("#game-over-overlay");
+  const gameOverDistance = document.querySelector("#game-over-distance");
+  const restartButton = document.querySelector("#restart-race");
   const connection = document.querySelector("#connection");
   const connectionLabel = document.querySelector("#connection-label");
   const roomCode = document.querySelector("#room-code");
@@ -27,9 +32,14 @@ export async function startGame() {
   const players = new Map();
   const keys = new Set();
   const obstacles = [];
-  const state = { width: 960, height: 600, speed: 235, distance: 0, time: 0, lastFrame: 0, spawnIn: 0, latency: null };
+  const state = { width: 960, height: 600, speed: BASE_SPEED, distance: 0, time: 0, lastFrame: 0, spawnIn: 0, latency: null };
   const joinedAt = performance.now();
   let socket;
+  let gameOverStartedAt = null;
+  let crashedPlayer = null;
+  let crashX = 480;
+  let crashColor = COLORS[0];
+  let crashParticles = [];
 
   const resize = () => {
     const bounds = canvas.getBoundingClientRect();
@@ -61,7 +71,6 @@ export async function startGame() {
           throttle: 0,
           brake: false,
           jumpUntil: 0,
-          collidedAt: 0,
           distance: 0
         });
       }
@@ -162,6 +171,9 @@ export async function startGame() {
   }
 
   const onKey = (event) => {
+    if (gameOverStartedAt !== null) {
+      return;
+    }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(event.key)) {
       event.preventDefault();
       keys.add(event.key);
@@ -231,9 +243,11 @@ export async function startGame() {
     }
   };
 
-  const drawCar = (x, y, color, size, jumped, damaged) => {
+  const drawCar = (x, y, color, size, jumped, damaged, rotation = 0, alpha = 1) => {
     context.save();
     context.translate(x, y);
+    context.rotate(rotation);
+    context.globalAlpha = alpha;
     if (jumped) {
       context.shadowColor = color;
       context.shadowBlur = 20;
@@ -259,71 +273,158 @@ export async function startGame() {
     context.restore();
   };
 
+  const drawCrash = (now) => {
+    const age = Math.max(0, now - gameOverStartedAt);
+    const progress = Math.min(age / CRASH_ANIMATION_MS, 1);
+    const bounce = Math.sin(Math.min(age / 220, 1) * Math.PI) * 22;
+    const fadeStart = CRASH_ANIMATION_MS * 0.72;
+    const alpha = age > fadeStart ? 1 - (age - fadeStart) / (CRASH_ANIMATION_MS - fadeStart) : 1;
+    const rotation = progress * Math.PI * 1.5;
+    const size = 78 * (1 + Math.sin(progress * Math.PI) * 0.16);
+    drawCar(crashX, 470 - bounce, crashColor, size, false, true, rotation, alpha);
+
+    for (const particle of crashParticles) {
+      const travel = particle.speed * progress;
+      const x = crashX + Math.cos(particle.angle) * travel;
+      const y = 470 + Math.sin(particle.angle) * travel + 42 * progress * progress;
+      context.save();
+      context.globalAlpha = 1 - progress;
+      context.strokeStyle = particle.color;
+      context.lineWidth = particle.size;
+      context.lineCap = "round";
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x - Math.cos(particle.angle) * particle.size * 3, y - Math.sin(particle.angle) * particle.size * 3);
+      context.stroke();
+      context.restore();
+    }
+  };
+
   const draw = (now) => {
     const elapsed = state.lastFrame ? Math.min((now - state.lastFrame) / 1000, 0.06) : 0;
     state.lastFrame = now;
-    state.time += elapsed;
     const racers = [...players.values()];
-    const pace = 185 + racers.reduce((boost, player) => boost + player.throttle * 90 - (player.brake ? 90 : 0), 0) / Math.max(1, racers.length);
-    state.speed = clamp(pace, 105, 330);
-    state.distance += (state.speed * elapsed) / 18;
-    state.spawnIn -= elapsed;
-    if (state.spawnIn <= 0) {
-      spawnObstacle();
-      state.spawnIn = 0.85 + Math.random() * 0.8;
+    if (gameOverStartedAt === null) {
+      state.time += elapsed;
+      const pace = BASE_SPEED + racers.reduce((boost, player) => boost + player.throttle * 90 - (player.brake ? 90 : 0), 0) / Math.max(1, racers.length);
+      state.speed = clamp(pace, 165, 390);
+      state.distance += (state.speed * elapsed) / 18;
+      state.spawnIn -= elapsed;
+      if (state.spawnIn <= 0) {
+        spawnObstacle();
+        state.spawnIn = 0.85 + Math.random() * 0.8;
+      }
+      for (const obstacle of obstacles) {
+        obstacle.y += state.speed * obstacle.speed * elapsed;
+      }
+      while (obstacles.length && obstacles[0].y > state.height + 120) {
+        obstacles.shift();
+      }
     }
-    for (const obstacle of obstacles) {
-      obstacle.y += state.speed * obstacle.speed * elapsed;
+    const crashAge = gameOverStartedAt === null ? 0 : now - gameOverStartedAt;
+    const shake = gameOverStartedAt !== null ? Math.max(0, 10 * (1 - crashAge / 300)) : 0;
+    context.save();
+    if (shake > 0) {
+      context.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     }
-    while (obstacles.length && obstacles[0].y > state.height + 120) {
-      obstacles.shift();
-    }
-    drawRoad(now / 10);
+    drawRoad(state.time * 100);
 
     for (const obstacle of obstacles) {
       const y = obstacle.y;
       const center = roadLeft(y) + (roadRight(y) - roadLeft(y)) * ((obstacle.lane + 0.5) / 3);
       const scale = 0.75 + (y / state.height) * 0.45;
       drawCar(center, y, obstacle.color, 61 * scale, false, false);
+      if (gameOverStartedAt !== null) {
+        continue;
+      }
       for (const player of racers) {
         const x = roadLeft(475) + (roadRight(475) - roadLeft(475)) * player.x;
-        if (Math.abs(y - 470) < 36 && Math.abs(center - x) < 47 &&
-            now > player.jumpUntil && now - player.collidedAt > 950) {
-          player.collidedAt = now;
-          state.distance = Math.max(0, state.distance - 4);
+        if (Math.abs(y - 470) < 36 && Math.abs(center - x) < 47 && now > player.jumpUntil) {
+          gameOverStartedAt = now;
+          crashedPlayer = player;
+          crashX = x;
+          crashColor = player.color;
+          crashParticles = Array.from({ length: 16 }, (_, index) => ({
+            angle: (index / 16) * Math.PI * 2 + Math.random() * 0.18,
+            speed: 55 + Math.random() * 110,
+            size: 2 + Math.random() * 3,
+            color: ["#fff0c2", "#ffb171", "#ff786b"][index % 3]
+          }));
+          keys.clear();
           obstacle.y = state.height + 120;
+          break;
         }
       }
     }
 
-    racers.forEach((player, index) => {
+    for (let index = 0; index < racers.length; index += 1) {
+      const player = racers[index];
       const slotWidth = 1 / racers.length;
       const leftLimit = Math.max(0.04, index * slotWidth + 0.035);
       const rightLimit = Math.min(0.96, (index + 1) * slotWidth - 0.035);
       const steering = player.tilt + (keys.has("ArrowRight") ? 0.6 : 0) - (keys.has("ArrowLeft") ? 0.6 : 0);
-      player.x = clamp(player.x + steering * elapsed * 0.5, leftLimit, rightLimit);
+      if (gameOverStartedAt === null) {
+        player.x = clamp(player.x + steering * elapsed * 0.5, leftLimit, rightLimit);
+      }
       const jumping = now < player.jumpUntil;
-      const bump = now - player.collidedAt < 280;
       const x = roadLeft(475) + (roadRight(475) - roadLeft(475)) * player.x;
-      drawCar(x, 470 - (jumping ? 34 : 0), player.color, 78, jumping, bump);
+      if (player === crashedPlayer) {
+        drawCrash(now);
+        continue;
+      }
+      drawCar(x, 470 - (jumping ? 34 : 0), player.color, 78, jumping, false);
       if (jumping) {
         context.fillStyle = `${player.color}80`;
         context.font = "10px 'DM Mono', monospace";
         context.textAlign = "center";
         context.fillText("JUMP!", x, 419);
       }
-    });
+    }
 
     if (racers.length === 0) {
       drawCar(480 + (keys.has("ArrowRight") ? 90 : 0) - (keys.has("ArrowLeft") ? 90 : 0), 470, COLORS[0], 78, false, false);
     }
+    if (gameOverStartedAt !== null && crashAge < 130) {
+      context.fillStyle = `rgba(255, 240, 204, ${(1 - crashAge / 130) * 0.72})`;
+      context.fillRect(0, 0, state.width, state.height);
+    }
+    context.restore();
+
     const distance = Math.floor(state.distance);
     distanceLabel.innerHTML = `${String(distance).padStart(4, "0")}<span> m</span>`;
     if (distance >= 1000 && !bestTimeLabel.textContent.includes(":")) {
       const seconds = (now - joinedAt) / 1000;
       bestTimeLabel.textContent = `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
     }
-    requestAnimationFrame(draw);
+    if (gameOverStartedAt !== null && crashAge >= CRASH_ANIMATION_MS && gameOverOverlay.hidden) {
+      gameOverDistance.textContent = `${distance} m`;
+      gameOverOverlay.hidden = false;
+    }
+    if (gameOverStartedAt === null || crashAge < CRASH_ANIMATION_MS) {
+      requestAnimationFrame(draw);
+    }
   };
+
+  restartButton.addEventListener("click", () => {
+    gameOverStartedAt = null;
+    crashedPlayer = null;
+    crashParticles = [];
+    state.speed = BASE_SPEED;
+    state.distance = 0;
+    state.time = 0;
+    state.lastFrame = performance.now();
+    state.spawnIn = 0;
+    obstacles.length = 0;
+    bestTimeLabel.textContent = "—";
+    for (const player of players.values()) {
+      player.x = player.target;
+      player.tilt = 0;
+      player.throttle = 0;
+      player.brake = false;
+      player.jumpUntil = 0;
+    }
+    gameOverOverlay.hidden = true;
+    requestAnimationFrame(draw);
+  });
   requestAnimationFrame(draw);
 }
