@@ -14,7 +14,11 @@ export function startController(inputRoom) {
   const room = typeof inputRoom === "string" ? inputRoom.toUpperCase() : "";
   const roomCode = document.querySelector("#controller-room-code");
   const enableButton = document.querySelector("#enable-sensors");
+  const motionToggle = document.querySelector("#motion-toggle");
   const calibrateButton = document.querySelector("#calibrate");
+  const touchSteering = document.querySelector("#touch-steering");
+  const steerLeftButton = document.querySelector("#steer-left");
+  const steerRightButton = document.querySelector("#steer-right");
   const jumpButton = document.querySelector("#jump-button");
   const boostButton = document.querySelector("#boost-button");
   const brakeButton = document.querySelector("#brake-button");
@@ -78,12 +82,16 @@ export function startController(inputRoom) {
   let latency = null;
   let socketReady = false;
   let sensorReady = false;
+  let controlsReady = false;
+  let motionEnabled = true;
+  let touchTilt = 0;
   let gotOrientation = false;
   let hasMotionEvent = false;
   let lastGamma = null;
 
   const updateIndicator = () => {
-    steeringDot.style.left = `${50 + filteredTilt * 43}%`;
+    const steering = motionEnabled ? filteredTilt : touchTilt;
+    steeringDot.style.left = `${50 + steering * 43}%`;
   };
   const setMessage = (message) => {
     sensorMessage.textContent = message;
@@ -95,7 +103,7 @@ export function startController(inputRoom) {
     }
   };
   const onOrientation = (event) => {
-    if (!Number.isFinite(event.gamma)) {
+    if (!motionEnabled || !Number.isFinite(event.gamma)) {
       return;
     }
     gotOrientation = true;
@@ -111,6 +119,9 @@ export function startController(inputRoom) {
     updateIndicator();
   };
   const onMotion = (event) => {
+    if (!motionEnabled) {
+      return;
+    }
     hasMotionEvent = true;
     setMessage("");
     const acceleration = event.acceleration;
@@ -154,7 +165,7 @@ export function startController(inputRoom) {
     }
     controller.send({
       type: "control",
-      tilt: filteredTilt,
+      tilt: motionEnabled ? filteredTilt : touchTilt,
       throttle,
       brake,
       jump: Date.now() < jumpUntil,
@@ -164,7 +175,7 @@ export function startController(inputRoom) {
 
   const bindHoldButton = (button, setValue) => {
     button.addEventListener("pointerdown", (event) => {
-      if (!sensorReady) {
+      if (!controlsReady) {
         return;
       }
       event.preventDefault();
@@ -185,7 +196,7 @@ export function startController(inputRoom) {
   bindHoldButton(boostButton, (active) => { throttle = active ? 1 : 0; });
   bindHoldButton(brakeButton, (active) => { brake = active; });
   jumpButton.addEventListener("pointerdown", (event) => {
-    if (!sensorReady) {
+    if (!controlsReady) {
       return;
     }
     event.preventDefault();
@@ -197,8 +208,75 @@ export function startController(inputRoom) {
   jumpButton.addEventListener("pointercancel", () => jumpButton.classList.remove("is-active"));
   jumpButton.addEventListener("lostpointercapture", () => jumpButton.classList.remove("is-active"));
 
-  enableButton.addEventListener("click", async () => {
+  const setTouchMode = () => {
+    if (sensorReady) {
+      window.removeEventListener("deviceorientation", onOrientation);
+      window.removeEventListener("devicemotion", onMotion);
+      sensorReady = false;
+    }
+    motionEnabled = false;
+    controlsReady = true;
+    filteredTilt = 0;
+    touchTilt = 0;
+    throttle = 0;
+    brake = false;
+    neutralGamma = null;
+    lastGamma = null;
+    previousAcceleration = null;
+    updateIndicator();
+    touchSteering.hidden = false;
+    steerLeftButton.disabled = false;
+    steerRightButton.disabled = false;
+    for (const button of buttons) {
+      button.disabled = false;
+    }
+    calibrateButton.disabled = true;
+    neutralLabel.textContent = "TOUCH STEERING";
+    sensorTitle.textContent = "Touch steering ready";
+    sensorDescription.textContent = "Hold left or right to steer. Tap jump; hold boost or brake.";
+    enableButton.disabled = false;
+    enableButton.textContent = "Enable motion controls";
+    setMessage("");
+  };
+
+  const bindSteeringButton = (button, direction) => {
+    const release = () => {
+      button.classList.remove("is-active");
+      touchTilt = 0;
+      updateIndicator();
+    };
+    button.addEventListener("pointerdown", (event) => {
+      if (!controlsReady || motionEnabled) {
+        return;
+      }
+      event.preventDefault();
+      button.setPointerCapture(event.pointerId);
+      button.classList.add("is-active");
+      touchTilt = direction;
+      updateIndicator();
+    });
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("lostpointercapture", release);
+  };
+
+  bindSteeringButton(steerLeftButton, -1);
+  bindSteeringButton(steerRightButton, 1);
+
+  const enableMotionControls = async () => {
+    if (sensorReady) {
+      return;
+    }
+    motionToggle.disabled = true;
     enableButton.disabled = true;
+    controlsReady = false;
+    motionEnabled = false;
+    touchSteering.hidden = true;
+    steerLeftButton.disabled = true;
+    steerRightButton.disabled = true;
+    for (const button of buttons) {
+      button.disabled = true;
+    }
     setMessage("");
     try {
       if (!window.isSecureContext) {
@@ -221,14 +299,20 @@ export function startController(inputRoom) {
       window.addEventListener("deviceorientation", onOrientation);
       window.addEventListener("devicemotion", onMotion);
       sensorReady = true;
+      motionEnabled = true;
+      controlsReady = true;
+      touchTilt = 0;
+      updateIndicator();
       for (const button of buttons) {
         button.disabled = false;
       }
       calibrateButton.disabled = true;
+      neutralLabel.textContent = "NOT CALIBRATED";
       enableButton.textContent = "Motion controls enabled";
       enableButton.textContent += " ✓";
       sensorTitle.textContent = "Sensors are live";
       sensorDescription.textContent = "Hold the phone upright, then set your neutral position.";
+      motionToggle.disabled = false;
       setTimeout(() => {
         if (!gotOrientation) {
           setMessage("No orientation readings yet. Check that this page is HTTPS and motion access is allowed.");
@@ -237,11 +321,28 @@ export function startController(inputRoom) {
         }
       }, 2500);
     } catch (error) {
-      enableButton.disabled = false;
-      sensorTitle.textContent = "Motion access needed";
+      motionToggle.checked = false;
+      setTouchMode();
+      sensorTitle.textContent = "Motion access unavailable";
       setMessage(error.message || "Could not enable motion controls.");
     }
+  };
+
+  enableButton.addEventListener("click", () => {
+    motionToggle.checked = true;
+    void enableMotionControls();
   });
+  motionToggle.addEventListener("change", () => {
+    if (motionToggle.checked) {
+      void enableMotionControls();
+    } else {
+      setTouchMode();
+    }
+  });
+
+  if (!motionToggle.checked) {
+    setTouchMode();
+  }
 
   calibrateButton.addEventListener("click", () => {
     if (!gotOrientation || !Number.isFinite(lastGamma)) {
@@ -250,6 +351,7 @@ export function startController(inputRoom) {
     }
     neutralGamma = lastGamma;
     filteredTilt = 0;
+    touchTilt = 0;
     updateIndicator();
     neutralLabel.textContent = "CALIBRATED";
     setMessage("Neutral position saved. Tilt either way to steer.");

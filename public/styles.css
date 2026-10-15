@@ -125,6 +125,14 @@ h1 > span { color: var(--lime); }
 .sensor-status-row strong, .sensor-status-row div > span { display: block; }
 .sensor-status-row strong { margin-bottom: 3px; font-size: 12px; }
 .sensor-status-row div > span { color: #91a094; font-size: 10px; line-height: 1.4; }
+.motion-toggle { display: flex; align-items: center; gap: 9px; width: fit-content; margin-top: 13px; color: #c4d0c6; font-size: 10px; cursor: pointer; }
+.motion-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.motion-switch { position: relative; width: 34px; height: 19px; flex: 0 0 auto; border: 1px solid #526258; border-radius: 12px; background: #27362e; transition: background .15s, border-color .15s; }
+.motion-switch::after { position: absolute; top: 3px; left: 3px; width: 11px; height: 11px; border-radius: 50%; background: #bac5bb; content: ""; transition: transform .15s, background .15s; }
+.motion-toggle input:checked + .motion-switch { border-color: var(--lime); background: #526c42; }
+.motion-toggle input:checked + .motion-switch::after { transform: translateX(15px); background: #f2ffe9; }
+.motion-toggle input:focus-visible + .motion-switch { outline: 2px solid var(--lime); outline-offset: 2px; }
+.motion-toggle input:disabled + .motion-switch { opacity: .55; }
 .sensor-actions { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 13px; }
 .primary-button { width: 100%; min-height: 45px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 0; border-radius: 6px; background: var(--lime); color: #172117; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
 .primary-button span { font-size: 16px; }
@@ -141,6 +149,12 @@ h1 > span { color: var(--lime); }
 .meter-tick:nth-child(2), .meter-tick:nth-child(4) { height: 12px; }
 .meter-center { position: absolute; left: 50%; top: 0; height: 100%; border-left: 1px dashed #9dab9b; }
 .steering-dot { position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border: 2px solid #edf5e9; border-radius: 50%; background: var(--lime); box-shadow: 0 0 10px #c1f17a78; transform: translate(-50%, -50%); transition: left .09s linear; }
+.touch-steering { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin-top: 11px; }
+.touch-steering[hidden] { display: none; }
+.touch-steering > span { color: #849589; font: 8px var(--mono); letter-spacing: .08em; white-space: nowrap; }
+.steer-button { min-height: 38px; border: 1px solid #405244; border-radius: 5px; background: #1a2a23; color: var(--lime); font-size: 18px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.steer-button:active, .steer-button.is-active { border-color: var(--lime); background: #263a2b; transform: scale(.97); }
+.steer-button:disabled { opacity: .5; cursor: not-allowed; }
 .meter-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 7px; }
 .phone-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 11px; }
 .action-button { min-height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1px solid #30433a; border-radius: 8px; background: #14221c; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .1s, border-color .15s, background .15s; }

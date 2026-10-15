@@ -108,12 +108,14 @@
           </section>
           <section class="sensor-card" id="sensor-card">
             <div class="sensor-status-row"><span class="sensor-icon">⌁</span><div><strong id="sensor-title">Wake up your sensors</strong><span id="sensor-description">Allow motion access to use your phone as a wheel.</span></div></div>
+            <label class="motion-toggle"><input id="motion-toggle" type="checkbox" checked><span class="motion-switch" aria-hidden="true"></span><span>Motion steering</span></label>
             <div class="sensor-actions"><button class="primary-button" id="enable-sensors" type="button">Enable motion controls <span>↗</span></button><button class="text-button" id="calibrate" type="button" disabled>Set neutral position</button></div>
             <p class="sensor-message" id="sensor-message" aria-live="polite"></p>
           </section>
           <section class="steering-card" id="steering-card">
             <div class="steering-heading"><span class="card-kicker">STEERING WHEEL</span><span class="neutral-label" id="neutral-label">NOT CALIBRATED</span></div>
             <div class="steering-meter" aria-label="Steering position"><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-tick"></span><span class="meter-center"></span><span class="steering-dot" id="steering-dot"></span></div>
+            <div class="touch-steering" id="touch-steering" hidden><button class="steer-button" id="steer-left" type="button" aria-label="Hold to steer left" disabled>←</button><span>HOLD TO STEER</span><button class="steer-button" id="steer-right" type="button" aria-label="Hold to steer right" disabled>→</button></div>
             <div class="meter-labels"><span>LEFT</span><span>NEUTRAL</span><span>RIGHT</span></div>
           </section>
           <div class="phone-actions" id="phone-actions">

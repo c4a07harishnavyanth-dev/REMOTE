@@ -2,7 +2,9 @@ import { connectRoom } from "./app.js";
 
 const COLORS = ["#c1f17a", "#5ee1bc", "#ffbd72", "#d39bf7", "#f47f83", "#80a9ff", "#f4e577", "#ff91cb"];
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const BASE_SPEED = 255;
+const BASE_SPEED = 340;
+const SPEED_MILESTONE_METERS = 300;
+const SPEED_MILESTONE_INCREMENT = 8;
 const CRASH_ANIMATION_MS = 1050;
 
 export async function startGame() {
@@ -306,8 +308,9 @@ export async function startGame() {
     const racers = [...players.values()];
     if (gameOverStartedAt === null) {
       state.time += elapsed;
-      const pace = BASE_SPEED + racers.reduce((boost, player) => boost + player.throttle * 90 - (player.brake ? 90 : 0), 0) / Math.max(1, racers.length);
-      state.speed = clamp(pace, 165, 390);
+      const milestones = Math.floor(state.distance / SPEED_MILESTONE_METERS);
+      const pace = BASE_SPEED + milestones * SPEED_MILESTONE_INCREMENT + racers.reduce((boost, player) => boost + player.throttle * 90 - (player.brake ? 90 : 0), 0) / Math.max(1, racers.length);
+      state.speed = Math.max(165, pace);
       state.distance += (state.speed * elapsed) / 18;
       state.spawnIn -= elapsed;
       if (state.spawnIn <= 0) {
